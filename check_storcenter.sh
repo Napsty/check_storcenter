@@ -14,7 +14,7 @@
 # 20111031      Using vqeU in mem type (if response comes with kB string)       #
 # 20140120      Added snmp authentication                                       #
 #################################################################################
-# Usage:        ./check_storcenter -H host -U user -t type [-w warning] [-c critical]
+# Usage:        ./check_storcenter -H host -U user -P password -t type [-w warning] [-c critical]
 #################################################################################
 help="check_storcenter (c) 2011-2014 Claudio Kuenzler published under GPL license
 Usage: ./check_storcenter -H host -U user -P password -t type [-w warning] [-c critical]
