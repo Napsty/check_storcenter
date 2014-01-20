@@ -17,15 +17,21 @@
 # Usage:        ./check_storcenter -H host -U user -t type [-w warning] [-c critical]
 #################################################################################
 help="check_storcenter (c) 2011-2014 Claudio Kuenzler published under GPL license
-\nUsage: ./check_storcenter -H host -U user -t type [-w warning] [-c critical]
-\nRequirements: snmpwalk, tr\n
-\nOptions: \t-H hostname\n\t\t-U user (to be defined in snmp settings on Storcenter)\n\t\t-t Type to check, see list below
-\t\t-w Warning Threshold (optional)\n\t\t-c Critical Threshold (optional)\n
-\nTypes: \t\tdisk -> Checks hard disks for their current status
-\t\traid -> Checks the RAID status
-\t\tcpu -> Check current CPU load (thresholds possible)
-\t\tmem -> Check current memory (RAM) utilization (thresholds possible)
-\t\tinfo -> Outputs some general information of the device"
+Usage: ./check_storcenter -H host -U user -P password -t type [-w warning] [-c critical]
+Requirements: snmpwalk, tr
+
+Options:	-H hostname
+		-U user (to be defined in snmp settings on Storcenter)
+		-P password (to be defined in snmp settings on Storcenter)
+		-t Type to check, see list below
+		-w Warning Threshold (optional)
+		-c Critical Threshold (optional)
+
+Types: 		disk -> Checks hard disks for their current status
+		raid -> Checks the RAID status
+		cpu -> Check current CPU load (thresholds possible)
+		mem -> Check current memory (RAM) utilization (thresholds possible)
+		info -> Outputs some general information of the device"
 
 # Nagios exit codes and PATH
 STATE_OK=0              # define the exit code if status is OK
