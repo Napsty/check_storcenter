@@ -12,10 +12,11 @@
 # 20111013.1    Corrected uptime (using hrSystemUptime.0 now)                   #
 # 20111020      Disk type now doesnt return CRITICAL anymore if disks missing   #
 # 20111031      Using vqeU in mem type (if response comes with kB string)       #
+# 20140120      Added snmp authentication                                       #
 #################################################################################
 # Usage:        ./check_storcenter -H host -U user -t type [-w warning] [-c critical]
 #################################################################################
-help="check_storcenter (c) 2011 Claudio Kuenzler published under GPL license
+help="check_storcenter (c) 2011-2014 Claudio Kuenzler published under GPL license
 \nUsage: ./check_storcenter -H host -U user -t type [-w warning] [-c critical]
 \nRequirements: snmpwalk, tr\n
 \nOptions: \t-H hostname\n\t\t-U user (to be defined in snmp settings on Storcenter)\n\t\t-t Type to check, see list below
@@ -51,11 +52,12 @@ if [ "${1}" = "--help" -o "${#}" = "0" ];
 fi
 #################################################################################
 # Get user-given variables
-while getopts "H:U:t:w:c:" Input;
+while getopts "H:U:P:t:w:c:" Input;
 do
        case ${Input} in
        H)      host=${OPTARG};;
        U)      user=${OPTARG};;
+       P)      password=${OPTARG};;
        t)      type=${OPTARG};;
        w)      warning=${OPTARG};;
        c)      critical=${OPTARG};;
@@ -65,13 +67,18 @@ do
        esac
 done
 #################################################################################
+# Newer StorCenter FW versions require a password
+if [[ -n $password ]]; then passinfo="-l authnopriv -a MD5 -A $password"
+else passinfo=""
+fi
+#################################################################################
 # Let's check that thing
 case ${type} in
 
 # Disk Check
-disk)   disknames=($(snmpwalk -v 3 -u ${user} -O vqe ${host} .1.3.6.1.4.1.1139.10.4.3.1.2 | tr ' ' '-'))
+disk)   disknames=($(snmpwalk -v 3 -u ${user} ${passinfo} -O vqe ${host} .1.3.6.1.4.1.1139.10.4.3.1.2 | tr ' ' '-'))
         countdisks=${#disknames[*]}
-        diskstatus=($(snmpwalk -v 3 -u ${user} -O vqe ${host} .1.3.6.1.4.1.1139.10.4.3.1.4 | tr '"' ' '))
+        diskstatus=($(snmpwalk -v 3 -u ${user} ${passinfo} -O vqe ${host} .1.3.6.1.4.1.1139.10.4.3.1.4 | tr '"' ' '))
         diskstatusok=0
         diskstatusforeign=0
         diskstatusfaulted=0
@@ -97,8 +104,8 @@ disk)   disknames=($(snmpwalk -v 3 -u ${user} -O vqe ${host} .1.3.6.1.4.1.1139.1
 
 
 # Raid Check
-raid)   raidstatus=$(snmpwalk -v 3 -u ${user} -O vqe ${host} .1.3.6.1.4.1.1139.10.4.1.0 | tr '"' ' ')
-        raidtype=$(snmpwalk -v 3 -u ${user} -O vqe ${host} .1.3.6.1.4.1.1139.10.4.2.0)
+raid)   raidstatus=$(snmpwalk -v 3 -u ${user} ${passinfo} -O vqe ${host} .1.3.6.1.4.1.1139.10.4.1.0 | tr '"' ' ')
+        raidtype=$(snmpwalk -v 3 -u ${user} ${passinfo} -O vqe ${host} .1.3.6.1.4.1.1139.10.4.2.0)
 
         if [ $raidstatus = "REBUILDING" ] || [ $raidstatus = "DEGRADED" ] || [ $raidstatus = "REBUILDFS" ]
         then echo "RAID WARNING - RAID $raidstatus"; exit ${STATE_WARNING}
@@ -110,7 +117,7 @@ raid)   raidstatus=$(snmpwalk -v 3 -u ${user} -O vqe ${host} .1.3.6.1.4.1.1139.1
 
 
 # CPU Load
-cpu)    load=($(snmpwalk -v 3 -u ${user} -O vqe ${host} .1.3.6.1.4.1.2021.10.1.3))
+cpu)    load=($(snmpwalk -v 3 -u ${user} ${passinfo} -O vqe ${host} .1.3.6.1.4.1.2021.10.1.3))
         load1=${load[0]}
         load1int=$(echo $load1 | awk -F '.' '{print $1}')
         load5=${load[1]}
@@ -130,8 +137,8 @@ cpu)    load=($(snmpwalk -v 3 -u ${user} -O vqe ${host} .1.3.6.1.4.1.2021.10.1.3
 
 
 # Memory (RAM) usage
-mem)    memtotal=$(snmpwalk -v 3 -u ${user} -O vqeU ${host} .1.3.6.1.4.1.2021.4.5.0)
-        memfree=$(snmpwalk -v 3 -u ${user} -O vqeU ${host} .1.3.6.1.4.1.2021.4.11.0)
+mem)    memtotal=$(snmpwalk -v 3 -u ${user} ${passinfo} -O vqeU ${host} .1.3.6.1.4.1.2021.4.5.0)
+        memfree=$(snmpwalk -v 3 -u ${user} ${passinfo} -O vqeU ${host} .1.3.6.1.4.1.2021.4.11.0)
         memused=$(( $memtotal - $memfree))
         memusedpercent=$(expr $memused \* 100 / $memtotal)
         memtotalperf=$(expr $memtotal \* 1024)
@@ -152,9 +159,9 @@ mem)    memtotal=$(snmpwalk -v 3 -u ${user} -O vqeU ${host} .1.3.6.1.4.1.2021.4.
 
 
 # General Information
-info)   uptime=$(snmpwalk -v 3 -u ${user} -O vqt ${host} .1.3.6.1.2.1.25.1.1.0)
-        hostname=$(snmpwalk -v 3 -u ${user} -O vqt ${host} .1.3.6.1.2.1.1.5.0)
-        description=$(snmpwalk -v 3 -u ${user} -O vqt ${host} .1.3.6.1.4.1.1139.10.1.1.0)
+info)   uptime=$(snmpwalk -v 3 -u ${user} ${passinfo} -O vqt ${host} .1.3.6.1.2.1.25.1.1.0)
+        hostname=$(snmpwalk -v 3 -u ${user} ${passinfo} -O vqt ${host} .1.3.6.1.2.1.1.5.0)
+        description=$(snmpwalk -v 3 -u ${user} ${passinfo} -O vqt ${host} .1.3.6.1.4.1.1139.10.1.1.0)
         uptimed=$(expr $uptime / 100 / 60 / 60 / 24)
 
         echo "${hostname} (${description}), Uptime: ${uptime} ($uptimed days)"; exit ${STATE_OK}
